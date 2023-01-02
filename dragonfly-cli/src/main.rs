@@ -1,13 +1,9 @@
 use anyhow::Context;
 use clap::{Parser, ValueEnum};
-use console::Term;
-use dialoguer::theme::ColorfulTheme;
-use dialoguer::Confirm;
-use indicatif::{ProgressBar, ProgressDrawTarget, ProgressStyle};
+use indicatif::{ProgressBar, ProgressStyle};
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::env::temp_dir;
-use std::io::Write;
 use std::time::Duration;
 use std::{
     path::PathBuf,
@@ -35,26 +31,44 @@ struct Cli {
     input_path: PathBuf,
     #[arg(
         help = "Output horizontal field of view in degrees",
-        default_value = "90.0"
+        default_value = "90.0",
+        long
     )]
     h_fov: f32,
     #[arg(
         help = "Output vertical field of view in degrees",
-        default_value = "45.0"
+        default_value = "45.0",
+        long
     )]
     v_fov: f32,
     #[arg(
         help = "Input horizontal field of view in degrees",
-        default_value = "360.0"
+        default_value = "360.0",
+        long
     )]
     ih_fov: f32,
     #[arg(
         help = "Input vertical field of view in degrees",
-        default_value = "180.0"
+        default_value = "180.0",
+        long
     )]
     iv_fov: f32,
-    #[arg(help = "Interpolation method", default_value_t = Interpolation::Linear)]
+    #[arg(help = "Interpolation method",
+        default_value_t = Interpolation::Linear,
+        long
+    )]
     interpolation: Interpolation,
+    #[arg(
+        help = "Retry the encoding step and re-use the frame extraction from the latest run",
+        long
+    )]
+    retry: bool,
+    #[arg(
+        help = "Number of concurrent instances of ffmpeg to run for frame extraction",
+        long,
+        default_value = "8"
+    )]
+    j: usize,
 }
 
 #[derive(ValueEnum, Display, Debug, Clone, EnumString)]
@@ -142,10 +156,10 @@ fn main() -> anyhow::Result<()> {
     debug!("Creating project directory: {:?}", project_dir_path);
     std::fs::create_dir_all(&project_dir_path)?;
 
-    let frames = 360;
+    let frames = 360 * 6;
     stdout.write_line(&format!(
-        "[1/2] Extracting {} frames from {}",
-        frames, input_path_str
+        "[1/2] Extracting {} frames from {} to {:?}",
+        frames, input_path_str, project_dir_path
     ))?;
     let pb = ProgressBar::new(frames);
     // Calculate the output image resolution based on the input and output FOVs and initial input resolution
@@ -153,6 +167,9 @@ fn main() -> anyhow::Result<()> {
     let v_ratio = cli.v_fov / cli.iv_fov;
     let output_width = (ffprobe_stream_output.width as f32 * h_ratio) as i32;
     let output_height = (ffprobe_stream_output.height as f32 * v_ratio) as i32;
+
+    let j = cli.j;
+    let mut tasks = Vec::with_capacity(j);
     // Extract frames
     for frame in 0..frames {
         // Want to exclude +180.0 from the yaw calculation to avoid having duplicate starting and ending frames
@@ -200,8 +217,15 @@ fn main() -> anyhow::Result<()> {
             output_path_str,
         ]);
         debug!("Spawning command: {:?}", &ffmpeg_cmd);
-        let mut ffmpeg_child = ffmpeg_cmd.stdout(Stdio::piped()).spawn()?;
-        ffmpeg_child.wait()?;
+        let ffmpeg_child = ffmpeg_cmd.stdout(Stdio::piped()).spawn()?;
+        tasks.push(ffmpeg_child);
+        // Wait for tasks to finish if we have reached the maximum number of concurrent tasks
+        if tasks.len() == j {
+            for task in tasks.iter_mut() {
+                task.wait()?;
+            }
+            tasks.clear();
+        }
         pb.inc(1);
     }
     pb.finish_and_clear();
@@ -243,7 +267,7 @@ fn main() -> anyhow::Result<()> {
         "-nostats",
         // Input file
         "-framerate",
-        "1",
+        "24",
         "-i",
         frame_path_template_str,
         "-c:v",
@@ -256,6 +280,7 @@ fn main() -> anyhow::Result<()> {
     debug!("Spawning command: {:?}", &ffmpeg_cmd);
     let mut ffmpeg_child = ffmpeg_cmd.stdout(Stdio::piped()).spawn()?;
     ffmpeg_child.wait()?;
+
     pb.finish_and_clear();
     std::process::exit(exitcode::OK);
 }
