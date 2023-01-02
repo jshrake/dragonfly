@@ -1,0 +1,24 @@
+[package]
+name = "dragonfly-cli"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[[bin]]
+name = "dragonfly"
+path = "src/main.rs"
+
+[dependencies]
+anyhow = "1.0.68"
+clap = {version = "4.0.32", features = ["derive", "env"]}
+console = "0.15.3"
+dialoguer = "0.10.2"
+dotenv = "0.15.0"
+dragonfly = { path = "../dragonfly", features = ["clap"]}
+env_logger = "0.10.0"
+exitcode = "1.1.2"
+indicatif = "0.17.2"
+lazy_static = "1.4.0"
+log = "0.4.17"
+strum = { version = "0.24", features = ["derive"] }
+which = "4.3.0"
