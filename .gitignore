@@ -1,0 +1,5 @@
+target
+*.mp4
+*.png
+*.jpg
+.DS_Store
