@@ -16,3 +16,5 @@ Software to project equirectangular images and videos into rectilinear images an
 - <https://ffmpeg.org/ffmpeg-filters.html#zoompan>
 - <https://superuser.com/questions/1112617/ffmpeg-smooth-zoompan-with-no-jiggle/1112680#1112680>
 - <https://superuser.com/questions/1127615/ffmpeg-zoompan-filter-examples>
+- <https://trac.ffmpeg.org/wiki/ChangingFrameRate>
+- <https://blog.programster.org/ffmpeg-create-smooth-videos-with-frame-interpolation>
