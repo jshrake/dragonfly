@@ -1,6 +1,7 @@
 use log::debug;
 use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use strum::{Display, EnumString};
@@ -72,7 +73,7 @@ pub struct ExtractFramesDescriptor {
         arg(
             help = "The horizontal field of view in degrees of the extracted output images",
             long,
-            default_value = "90.0"
+            default_value = "60.0"
         )
     )]
     pub h_fov: f32,
@@ -100,12 +101,12 @@ pub struct EncodeFramesDescriptor {
     #[cfg_attr(
         feature = "clap",
         arg(
-            help = "The FPS of the extracted input images",
+            help = "The desired length in seconds of the video",
             long,
-            default_value = "60"
+            default_value = "10"
         )
     )]
-    pub input_frames_per_second: f32,
+    pub length: f32,
     #[cfg_attr(
         feature = "clap",
         arg(help = "The FPS of the output video", long, default_value = "60")
@@ -277,6 +278,11 @@ pub fn encode_frames(
     let output_path_str = output_path
         .to_str()
         .ok_or_else(|| DragonflyError::InvalidPathString(output_path.to_path_buf()))?;
+    let total_frame_count = fs::read_dir(extraction_path)?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_type().ok().map_or(false, |ft| ft.is_file()))
+        .count();
+    let input_frames_per_second = total_frame_count as f32 / descriptor.length;
     ffmpeg_cmd.args([
         // Quiet output
         "-hide_banner",
@@ -285,7 +291,7 @@ pub fn encode_frames(
         "-nostats",
         // Input FPS
         "-r",
-        descriptor.input_frames_per_second.to_string().as_str(),
+        input_frames_per_second.to_string().as_str(),
         // Input directory path containing images
         "-i",
         frame_path_template_str,
