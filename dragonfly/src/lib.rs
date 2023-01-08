@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::process::{Command, ExitStatus, Stdio};
 use strum::{Display, EnumString};
 use thiserror::Error;
 
@@ -36,6 +36,8 @@ pub enum DragonflyError {
     Json(#[from] serde_json::Error),
     #[error("Error converting path to str: {0}")]
     InvalidPathString(PathBuf),
+    #[error("Error extracting images with ffmpeg")]
+    FfmpegExtractFailed,
     #[error("Unknown error")]
     Unknown,
 }
@@ -195,8 +197,8 @@ pub fn extract_frames(
     let mut tasks = Vec::with_capacity(descriptor.j);
     // Extract frames
     for frame in 0..descriptor.frame_count {
+        //let yaw = -180.0 + 360.0 * (frame as f32 / (descriptor.frame_count - 1) as f32);
         // Want to exclude +180.0 from the yaw calculation to avoid having duplicate starting and ending frames
-        //let yaw = -180.0 + 360.0 * (frame as f32 / (frames - 1) as f32);
         let yaw = -180.0 + 360.0 * (frame as f32 / descriptor.frame_count as f32);
         let pitch = 0.0;
         let roll = 0.0;
@@ -218,7 +220,7 @@ pub fn extract_frames(
             // See https://ffmpeg.org/ffmpeg-filters.html#v360
             "-vf",
             &format!(
-                "v360=e:flat:yaw={}:pitch={}:roll={}:ih_fov={}:iv_fov={}:h_fov={}:v_fov={}:interp={}:w={}:h={}",
+                "v360=e:flat:yaw={}:pitch={}:roll={}:ih_fov={}:iv_fov={}:h_fov={}:v_fov={}:interp={}",
                 yaw,
                 pitch,
                 roll,
@@ -227,8 +229,6 @@ pub fn extract_frames(
                 oh_fov,
                 ov_fov,
                 descriptor.interpolation,
-                output_width,
-                output_height
             ),
             // Output file
             // https://ffmpeg.org/ffmpeg-formats.html#image2-1
@@ -247,7 +247,10 @@ pub fn extract_frames(
         // Wait for tasks to finish if we have reached the maximum number of concurrent tasks
         if tasks.len() == tasks.capacity() {
             for task in tasks.iter_mut() {
-                task.wait()?;
+                let status = task.wait()?;
+                if !status.success() {
+                    return Err(DragonflyError::FfmpegExtractFailed);
+                }
             }
             tasks.clear();
         }
@@ -262,12 +265,13 @@ pub fn encode_frames(
     output_path: &Path,
     extraction_path: &Path,
     descriptor: &EncodeFramesDescriptor,
-) -> Result<()> {
+) -> Result<ExitStatus> {
     // Encode output
     let frame_path_template = extraction_path.join("frame_%08d.jpg");
     let frame_path_template_str = frame_path_template
         .to_str()
         .ok_or_else(|| DragonflyError::InvalidPathString(frame_path_template.clone()))?;
+    let output_fps_string = descriptor.fps.to_string();
     // If the user passed in a scale factor, use that. Otherwise, use the scale string as-is
     let scale_filter_string = if let Ok(scale) = descriptor.scale.parse::<f32>() {
         format!("scale=iw*{scale}:ih*{scale}")
@@ -282,6 +286,7 @@ pub fn encode_frames(
         .filter_map(|entry| entry.ok())
         .filter(|entry| entry.file_type().ok().map_or(false, |ft| ft.is_file()))
         .count();
+    debug!("Total frame count {total_frame_count}");
     let input_frames_per_second = total_frame_count as f32 / descriptor.length;
     ffmpeg_cmd.args([
         // Quiet output
@@ -295,9 +300,6 @@ pub fn encode_frames(
         // Input directory path containing images
         "-i",
         frame_path_template_str,
-        // Scale filter
-        "-vf",
-        &scale_filter_string,
         // h264
         "-c:v",
         "libx264",
@@ -310,21 +312,28 @@ pub fn encode_frames(
         // pixel format
         "-pix_fmt",
         "yuv420p",
-        // Interpolation!
-        //"-filter:v",
-        //"minterpolate",
-        //"tblend",
+        // TODO: configurable
+        "-tune",
+        "stillimage",
+        // key frame the first and last frame
+        "-g",
+        &format!("{}", total_frame_count - 1),
+        // Filters
+        // - Frame interpolation/blending
+        // - Scaling
+        "-vf",
+        &format!("{}", scale_filter_string.as_str(),),
         // output framerate
         // https://trac.ffmpeg.org/wiki/ChangingFrameRate
         "-r",
-        descriptor.fps.to_string().as_str(),
+        output_fps_string.as_str(),
         // Output file path
         "-y",
         output_path_str,
     ]);
     debug!("Spawning command: {:?}", &ffmpeg_cmd);
     let mut ffmpeg_child = ffmpeg_cmd.stdout(Stdio::piped()).spawn()?;
-    ffmpeg_child.wait()?;
+    let status = ffmpeg_child.wait()?;
 
-    Ok(())
+    Ok(status)
 }

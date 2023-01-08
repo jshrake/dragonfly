@@ -182,8 +182,11 @@ fn main() -> anyhow::Result<()> {
                     ]),
             );
             pb.set_message("Encoding...");
-            dragonfly::encode_frames(&output_path, &extract_path, &args)?;
+            let status = dragonfly::encode_frames(&output_path, &extract_path, &args)?;
             pb.finish_and_clear();
+            if !status.success() {
+                std::process::exit(status.code().unwrap_or(exitcode::SOFTWARE));
+            }
         }
     }
 

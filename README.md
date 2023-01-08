@@ -1,6 +1,13 @@
 # dragonfly
 
-Software to project equirectangular images and videos into rectilinear images and videos.
+Software to extract and re-encode frames from equirectangular (360) images and video.
+
+- Create a 5 second 30 FPS video
+
+```bash
+RUST_LOG=debug cargo run -- extract examples/example.jpg --frame-count 300 --j 8    
+RUST_LOG=debug cargo run -- encode --length 5 --fps 30 --scale 0.125
+```
 
 ## Resources
 
@@ -10,11 +17,16 @@ Software to project equirectangular images and videos into rectilinear images an
 - <https://github.com/NitishMutha/equirectangular-toolbox/blob/master/nfov.py>
 - <https://mathworld.wolfram.com/GnomonicProjection.html>
 
-### ffmpeg filters
+### ffmpeg
 
 - <https://ffmpeg.org/ffmpeg-filters.html#v360>
 - <https://ffmpeg.org/ffmpeg-filters.html#zoompan>
+- <https://trac.ffmpeg.org/wiki/Encode/H.264>
 - <https://superuser.com/questions/1112617/ffmpeg-smooth-zoompan-with-no-jiggle/1112680#1112680>
 - <https://superuser.com/questions/1127615/ffmpeg-zoompan-filter-examples>
 - <https://trac.ffmpeg.org/wiki/ChangingFrameRate>
 - <https://blog.programster.org/ffmpeg-create-smooth-videos-with-frame-interpolation>
+- <https://stackoverflow.com/questions/22547253/how-do-i-reduce-frames-with-blending-in-ffmpeg>
+- <https://superuser.com/questions/564402/explanation-of-x264-tune>
+- List of useful example commands <https://github.com/Fescron/ubuntu/blob/master/2-timelapse-ffmpeg.md#2---timelapse-to-video-with-ffmpeg>
+- Another list <https://gist.github.com/jkalucki/c81f8fe17599a8c9cd51b565d7dc27eb>
