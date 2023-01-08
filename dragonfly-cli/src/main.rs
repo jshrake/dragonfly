@@ -4,7 +4,7 @@ use std::env::temp_dir;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::os::unix::prelude::OsStrExt;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 use which::which;
 
@@ -49,11 +49,16 @@ enum DragonflySubCommand {
     },
 }
 
+lazy_static::lazy_static! {
+    pub static ref DRAGONFLY_TEMP_DIR: PathBuf = std::env::var("DRAGONFLY_TEMP_DIR")
+        .map(PathBuf::from).unwrap_or_else(|_| temp_dir());
+    pub static ref DRAGONFLY_EXTRACT_DIR_CACHE_FILE: PathBuf = DRAGONFLY_TEMP_DIR.join(".dragonfly");
+}
+
 /// Creates a temporary directory to hold the extracted frames
 /// Returns the path to the directory
 fn create_tmp_extract_dir() -> anyhow::Result<PathBuf> {
-    let tmp_dir_path = temp_dir();
-    let extraction_path = tmp_dir_path.join(format!(
+    let extraction_path = DRAGONFLY_TEMP_DIR.join(format!(
         "com.jshrake.dragonfly-{}",
         std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)?
@@ -63,18 +68,14 @@ fn create_tmp_extract_dir() -> anyhow::Result<PathBuf> {
     Ok(extraction_path)
 }
 
-fn store_extract_dir(dir: &PathBuf) -> anyhow::Result<()> {
-    let tmp_dir_path = temp_dir();
-    let file_path = tmp_dir_path.join(".dragonfly");
-    let mut file = File::create(file_path)?;
+fn store_extract_dir(dir: &Path) -> anyhow::Result<()> {
+    let mut file = File::create(DRAGONFLY_EXTRACT_DIR_CACHE_FILE.clone())?;
     file.write_all(dir.as_os_str().as_bytes())?;
     Ok(())
 }
 
 fn retrieve_extract_dir() -> anyhow::Result<PathBuf> {
-    let tmp_dir_path = temp_dir();
-    let file_path = tmp_dir_path.join(".dragonfly");
-    let mut file = File::open(file_path)?;
+    let mut file = File::open(DRAGONFLY_EXTRACT_DIR_CACHE_FILE.clone())?;
     let mut buf = String::new();
     file.read_to_string(&mut buf)?;
     Ok(buf.into())

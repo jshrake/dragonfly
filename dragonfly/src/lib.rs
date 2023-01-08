@@ -146,6 +146,7 @@ struct FfprobeStreamOutput {
     height: i32,
 }
 
+#[allow(dead_code)]
 fn ffprobe_info(input_path: &Path) -> Result<FfprobeOutput> {
     let input_path_str = input_path
         .to_str()
@@ -179,20 +180,21 @@ pub fn extract_frames(
     let input_path_str = input_path
         .to_str()
         .ok_or_else(|| DragonflyError::InvalidPathString(input_path.to_path_buf()))?;
+    let ih_fov = descriptor.ih_fov;
+    let iv_fov = descriptor.iv_fov;
+    let oh_fov = descriptor.h_fov;
+    let ov_fov = descriptor.v_fov;
+    /*
     let ffprobe_output = ffprobe_info(input_path)?;
     let ffprobe_stream_output = ffprobe_output
         .streams
         .first()
         .ok_or(DragonflyError::SourceContainsNoStream)?;
-    // Calculate the output image resolution based on the input and output FOVs and initial input resolution
-    let ih_fov = descriptor.ih_fov;
-    let iv_fov = descriptor.iv_fov;
-    let oh_fov = descriptor.h_fov;
-    let ov_fov = descriptor.v_fov;
     let h_ratio = oh_fov / ih_fov;
     let v_ratio = ov_fov / iv_fov;
     let output_width = (ffprobe_stream_output.width as f32 * h_ratio) as i32;
     let output_height = (ffprobe_stream_output.height as f32 * v_ratio) as i32;
+    */
 
     let mut tasks = Vec::with_capacity(descriptor.j);
     // Extract frames
@@ -322,7 +324,7 @@ pub fn encode_frames(
         // - Frame interpolation/blending
         // - Scaling
         "-vf",
-        &format!("{}", scale_filter_string.as_str(),),
+        scale_filter_string.as_str(),
         // output framerate
         // https://trac.ffmpeg.org/wiki/ChangingFrameRate
         "-r",
