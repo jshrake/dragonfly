@@ -2,6 +2,15 @@
 
 Software to extract frames from equirectangular (360) images and video.
 
+Convert this
+
+![example](https://user-images.githubusercontent.com/3046816/212596686-ba1b7ed0-5143-40b6-a2a5-0456a89cf0c3.jpg)
+
+into this
+
+[example.webm](https://user-images.githubusercontent.com/3046816/212596188-88efb730-8ecb-4b99-b133-b9fca26f176a.webm)
+
+
 ## Getting Started
 
 You need to install <https://ffmpeg.org/> and ensure that the `ffmpeg` and `ffprobe` binaries are on your `$PATH`.
