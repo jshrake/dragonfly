@@ -1,6 +1,6 @@
 # dragonfly
 
-Software to extract frames from equirectangular (360) images and video.
+Command-line tool to extract frames from equirectangular (360) images and video.
 
 Convert this
 
@@ -10,6 +10,7 @@ into this
 
 [example.webm](https://user-images.githubusercontent.com/3046816/212596188-88efb730-8ecb-4b99-b133-b9fca26f176a.webm)
 
+**WARNING** This is alpha software and not ready for you to use. It will change.
 
 ## Getting Started
 
